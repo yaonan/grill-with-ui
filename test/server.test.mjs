@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn, spawnSync, execFileSync } from "node:child_process";
-import { chmodSync, closeSync, mkdtempSync, openSync, readFileSync, readdirSync, realpathSync, statSync, utimesSync, writeFileSync } from "node:fs";
+import { chmodSync, closeSync, mkdtempSync, openSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { request } from "node:http";
 import { connect, createServer } from "node:net";
 import { networkInterfaces, tmpdir } from "node:os";
@@ -1257,4 +1257,51 @@ test("serve --open: no opener (headless) or a failing one leaves one stderr note
     await post(s.ready.url, { actions: [{ q: "q1", type: "defer" }] });
     assert.equal(JSON.parse(await s.out.nth(2)).seq, 1, `${why}: stdout untouched`);
   }
+});
+
+// A home (or one of its session folders) on a read-only volume: new, serve and patch each owe one
+// stderr line that names the place and the way out, never a Node stack trace. These assert only
+// what a caller sees: exit code, one grill: line, the path, the keyword, and no stack framing.
+function assertOneLineNoStack(r, home) {
+  assert.equal(r.status, 1, `a refused write keeps the existing exit code: ${r.stderr}`);
+  assert.equal(r.stdout, "", "nothing on stdout");
+  assert.match(r.stderr, /^grill: [^\n]*\n$/, `exactly one grill: line and no stack, got: ${r.stderr}`);
+  assert.match(r.stderr, /GRILL_HOME/, `names a way out: ${r.stderr}`);
+  assert.ok(r.stderr.includes(home), `names the home ${home}: ${r.stderr}`);
+  assert.doesNotMatch(r.stderr, /Error:/);
+  assert.doesNotMatch(r.stderr, /^\s+at /m);
+}
+// chmod back before anything removes the folder: an unwritable folder cannot be rm -rf'd.
+const readOnly = (dir) => { chmodSync(dir, 0o555); return () => chmodSync(dir, 0o755); };
+
+test("new: a GRILL_HOME it cannot write to is one line naming the home, not a stack", () => {
+  const ro = mkdtempSync(join(tmpdir(), "grill-ro-home-"));
+  const restore = readOnly(ro);
+  try {
+    const r = spawnSync(process.execPath, [SERVER, "new", "--topic", "X"],
+      { encoding: "utf8", cwd: tmp("grill-ro-cwd-"), env: { ...process.env, GRILL_HOME: ro } });
+    assertOneLineNoStack(r, ro);
+  } finally { restore(); rmSync(ro, { recursive: true, force: true }); }
+});
+
+test("serve: a session folder it cannot write is one line naming the home, not a stack", () => {
+  const { session } = newSession(tmp("grill-ro-serve-"));
+  const restore = readOnly(session);
+  try {
+    // timeout so a serve that starts despite the read-only folder fails the assertions, not the run
+    const r = spawnSync(process.execPath, [SERVER, "serve", "--session", session], { encoding: "utf8", env, timeout: 15000 });
+    assertOneLineNoStack(r, home);
+  } finally { restore(); }
+});
+
+test("patch: a session folder it cannot write is one line naming the home, not a stack", () => {
+  const session = seeded({ questions: [qn("q1", 1)] });
+  const before = rawState(session);
+  const restore = readOnly(session);
+  try {
+    const r = spawnSync(process.execPath, [SERVER, "patch", "--session", session],
+      { env, input: JSON.stringify({ agent: { handled: 1 } }), encoding: "utf8" });
+    assertOneLineNoStack(r, home);
+    assert.equal(rawState(session), before, "state.json untouched");
+  } finally { restore(); }
 });
