@@ -166,7 +166,7 @@ function closeTab(id) {
   persist(); render();
 }
 async function setHidden(id, hidden) {
-  await fetch("/api/hide", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, hidden }) }).catch(() => {});
+  await fetch("api/hide", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, hidden }) }).catch(() => {});
   poll();
 }
 
@@ -260,7 +260,7 @@ async function loadSummary(id, p, keepOpen) {
   const openIds = keepOpen ? new Set([...p.el.querySelectorAll("details.q[open]")].map((d) => d.dataset.q)) : new Set();
   const top = keepOpen ? (p.el.querySelector(".scroll") || {}).scrollTop : 0;
   let st = null;
-  try { const r = await fetch("/api/session?id=" + encodeURIComponent(id)); if (r.ok) st = await r.json(); } catch {}
+  try { const r = await fetch("api/session?id=" + encodeURIComponent(id)); if (r.ok) st = await r.json(); } catch {}
   if (panes.get(id) !== p || !p.mode.startsWith("summary:")) return; // closed or went live meanwhile
   if (!st) { p.el.innerHTML = `<div class="scroll"><div class="sum"><p class="notice">读不到这个会话的 state.json。</p></div></div>`; return; }
   const qs = Array.isArray(st.questions) ? st.questions : [];
@@ -285,7 +285,7 @@ async function loadSummary(id, p, keepOpen) {
           ${(q.thread || []).length ? `<div class="thread">${q.thread.map((m) => `<div><b>${m.who === "user" ? "你" : "agent"}</b>${md(m.text)}</div>`).join("")}</div>` : ""}
         </div></details>`;
     }).join("") || `<p class="meta">还没有问题。</p>`}
-    ${s.hasVisual ? `<h3>可视化</h3><iframe class="visual" sandbox="allow-scripts" src="/api/visual?id=${encodeURIComponent(id)}" title="可视化"></iframe>` : ""}
+    ${s.hasVisual ? `<h3>可视化</h3><iframe class="visual" sandbox="allow-scripts" src="api/visual?id=${encodeURIComponent(id)}" title="可视化"></iframe>` : ""}
   </div></div>`;
   if (top) p.el.querySelector(".scroll").scrollTop = top;
 }
@@ -311,7 +311,7 @@ window.addEventListener("hashchange", () => { wanted = fromHash() || wanted; pol
 
 async function poll() {
   let data;
-  try { const r = await fetch("/api/sessions"); if (!r.ok) throw 0; data = await r.json(); } catch { return; }
+  try { const r = await fetch("api/sessions"); if (!r.ok) throw 0; data = await r.json(); } catch { return; }
   sessions = new Map(data.sessions.map((s) => [s.id, s]));
   loaded = true;
   // Restored tabs whose session folder is gone are dropped.
