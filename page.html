@@ -7,22 +7,23 @@
 <style>
   :root {
     color-scheme: light dark;
-    --bg: light-dark(#f7f4ee, #16130f); --panel: light-dark(#ffffff, #1e1a15); --ink: light-dark(#1f1c18, #ece7dd);
-    --ink-2: light-dark(#625b51, #b3aa9c); --ink-3: light-dark(#9a9285, #7d7568); --rule: light-dark(#e6e0d4, #322c24); --hover: light-dark(#efebe3, #2a241d);
-    --accent: light-dark(#9a3a26, #d9d1c3); --ok: light-dark(#3d6b4a, #7fb08d); --ok-soft: light-dark(#e3eee5, #1f2b22); --ok-deep: light-dark(#2f5a3b, #6ea07c); --ok-pulse: light-dark(#7fb08d, #a9d6b6);
-    --stage: light-dark(#b8791f, #d9a441); --stage-soft: light-dark(#f8ecd2, #2e2616); --warn-soft: light-dark(#fbe9e4, #38211b);
+    /* Colours follow the DSH host tokens (dsh-plugins docs/design, shared/design/host-tokens.json) so the page sits inside DSH without clashing. */
+    --bg: light-dark(#ffffff, #151517); --panel: light-dark(#ffffff, #232324); --ink: light-dark(#0f1115, #f9fafb);
+    --ink-2: light-dark(#61666b, #cfd3d6); --ink-3: light-dark(#81858c, #adb2b8); --rule: light-dark(#0000001a, #ffffff1f); --hover: light-dark(#f1f3f5, #2c2c2e);
+    --accent: light-dark(#0f1115, #f9fafb); --ok: light-dark(#15803d, #22c55e); --ok-soft: light-dark(#e6faed, #233c2c); --ok-deep: light-dark(#126c33, #4ed17e); --ok-pulse: light-dark(#4ed17e, #86e3a8);
+    --stage: light-dark(#b45309, #f59e0b); --stage-soft: light-dark(#fef5e7, #27241f); --warn-soft: light-dark(#fdeeee, #2e1f1f);
     /* Text and ticks on an --accent or --ok fill. Those fills turn light in the dark theme, where white on them drops to 3:1 and below. */
-    --on-fill: light-dark(#ffffff, #16130f);
-    /* Importance levels and rating chips. In the dark theme the accent is a neutral off-white, so
-       red means only Decide carefully (its own --careful, which never moves with the accent) or a
-       poor rating. */
-    --accent-soft: light-dark(#fbefeb, #2c2720); --accent-line: light-dark(#e7c9c0, #4a4238);
-    --careful: light-dark(#9a3a26, #e0785c); --careful-soft: light-dark(#fbefeb, #38211b); --careful-line: light-dark(#e7c9c0, #5a2e24); --stage-line: light-dark(#ecd6ae, #4a3a1c);
-    --taste: light-dark(#5d4a86, #b4a2e0); --taste-soft: light-dark(#f1edf7, #251f33); --taste-line: light-dark(#d6cde6, #3d3352);
-    --check-ink: light-dark(#7f5413, #e0b45a); --skim-ink: light-dark(#625b51, #b3aa9c);
-    --chip-g-bg: light-dark(#e3eee5, #1f2b22); --chip-g-ink: light-dark(#2f5a3b, #8fc29d); --chip-g-line: light-dark(#c7dccb, #2f4a36);
-    --chip-x-bg: light-dark(#f8ecd2, #2e2616); --chip-x-ink: light-dark(#7f5413, #e0b45a); --chip-x-line: light-dark(#ead3a2, #4a3a1c);
-    --chip-p-bg: light-dark(#fbe4dd, #38211b); --chip-p-ink: light-dark(#9a3a26, #ec8b72); --chip-p-line: light-dark(#f0c7bb, #5a2e24);
+    --on-fill: light-dark(#ffffff, #0f1115);
+    /* Importance levels and rating chips. The accent is the neutral DSH brand colour (near-black,
+       near-white in the dark theme), so red means only Decide carefully (its own --careful, which
+       never moves with the accent) or a poor rating. */
+    --accent-soft: light-dark(#f5f6f7, #2c2c2e); --accent-line: light-dark(#cfd3d6, #545557);
+    --careful: light-dark(#dc2626, #f25a5a); --careful-soft: light-dark(#fdeeee, #2e1f1f); --careful-line: light-dark(#f7c5c5, #5a2e2e); --stage-line: light-dark(#f6dcae, #4a3f24);
+    --taste: light-dark(#7c3aed, #a78bfa); --taste-soft: light-dark(#f3effe, #272338); --taste-line: light-dark(#ddd0fb, #40366a);
+    --check-ink: light-dark(#b45309, #f7ad31); --skim-ink: light-dark(#61666b, #cfd3d6);
+    --chip-g-bg: light-dark(#e6faed, #233c2c); --chip-g-ink: light-dark(#15803d, #4ed17e); --chip-g-line: light-dark(#bfe9cd, #2f5a3e);
+    --chip-x-bg: light-dark(#fef5e7, #27241f); --chip-x-ink: light-dark(#b45309, #f7ad31); --chip-x-line: light-dark(#f6dcae, #4a3f24);
+    --chip-p-bg: light-dark(#fdeeee, #2e1f1f); --chip-p-ink: light-dark(#dc2626, #f25a5a); --chip-p-line: light-dark(#f7c5c5, #5a2e2e);
     --serif: "Iowan Old Style", Charter, Georgia, serif;
     --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   }
@@ -172,7 +173,7 @@
   button { font-family: var(--sans); font-weight: 500; font-size: 14px; padding: 9px 14px; border-radius: 8px; border: 1px solid var(--rule); background: var(--panel); color: var(--ink); cursor: pointer; white-space: nowrap; }
   button:hover { border-color: var(--ink-3); }
   button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-fill); } button.primary:hover { border-color: var(--accent); }
-  button:disabled, button.primary:disabled { background: var(--ink-3); border-color: var(--ink-3); color: #fff; cursor: default; }
+  button:disabled, button.primary:disabled { background: var(--ink-3); border-color: var(--ink-3); color: var(--on-fill); cursor: default; }
   main .empty { color: var(--ink-3); font-size: 14px; }
 
   aside { grid-row: 3; grid-column: 3; border-left: 1px solid var(--rule); display: grid; grid-template-rows: auto 1fr auto; min-height: 0; }
