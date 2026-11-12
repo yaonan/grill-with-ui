@@ -410,13 +410,13 @@ const fmtMs = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return s <
 // ---- polling ----
 async function poll() {
   try {
-    const r = await fetch(withToken("/state"), { cache: "no-store" });
+    const r = await fetch(withToken("state"), { cache: "no-store" });
     if (!r.ok) throw new Error(String(r.status));
     const text = await r.text();
     lastOk = Date.now();
     if (gone) { gone = false; render(); }
     const was = unheard();
-    listener = await fetch(withToken("/listener"), { cache: "no-store" }).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+    listener = await fetch(withToken("listener"), { cache: "no-store" }).then((x) => (x.ok ? x.json() : null)).catch(() => null);
     if (text !== raw) { raw = text; S = JSON.parse(text); onState(); } else if (unheard() !== was) render(); else tick();
   } catch {
     if (!gone && Date.now() - lastOk > GONE_AFTER_MS) { gone = true; render(); } else tick();
@@ -529,7 +529,7 @@ function sendState(needStaged = true) {
 }
 async function post(actions) {
   let r, j = {};
-  try { r = await fetch(withToken("/send"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ actions }) }); j = await r.json().catch(() => ({})); } catch { r = null; }
+  try { r = await fetch(withToken("send"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ actions }) }); j = await r.json().catch(() => ({})); } catch { r = null; }
   if (!j.ok) $("send-why").textContent = "Send failed: " + (j.error || (r && r.status) || "no server");
   return j.ok ? j : null;
 }
@@ -642,7 +642,7 @@ function renderVisual() {
     return;
   }
   wait.hidden = true; frame.hidden = false;
-  const src = withToken(`/visual?v=${encodeURIComponent(v.version)}`);
+  const src = withToken(`visual?v=${encodeURIComponent(v.version)}`);
   if (frame.dataset.v !== String(v.version)) { frame.dataset.v = String(v.version); frame.setAttribute("src", src); } // only a version bump reloads the iframe; a background redraw keeps the current one
   const busy = isVisualizing(); const gate = sendState(false); const lk = locked();
   const regenTitle = gate.disabled ? (gate.why || "the agent is busy") : drawStuck() ? DRAW_STUCK_NOTE : "";
@@ -856,7 +856,7 @@ const applyTheme = () => {
 $("theme-toggle").onclick = () => {
   theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
   applyTheme();
-  fetch(withToken("/theme"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ theme }) }).catch(() => {});
+  fetch(withToken("theme"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ theme }) }).catch(() => {});
 };
 applyTheme();
 document.addEventListener("click", (e) => {
