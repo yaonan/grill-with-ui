@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="__GRILL_THEME__">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>决策中心</title>
+<link id="favicon" rel="icon" href="data:," />
+<style>
+  :root {
+    color-scheme: light dark;
+    /* Colours follow the DSH host tokens (dsh-plugins docs/design, shared/design/host-tokens.json) so the page sits inside DSH without clashing. */
+    --bg: light-dark(#ffffff, #151517); --panel: light-dark(#ffffff, #232324); --ink: light-dark(#0f1115, #f9fafb);
+    --ink-2: light-dark(#61666b, #cfd3d6); --ink-3: light-dark(#81858c, #adb2b8); --rule: light-dark(#0000001a, #ffffff1f); --hover: light-dark(#f1f3f5, #2c2c2e);
+    --accent: light-dark(#0f1115, #f9fafb); --alert: light-dark(#ec1313, #f25a5a); --ok: light-dark(#15803d, #22c55e); --ok-soft: light-dark(#e6faed, #233c2c);
+    --stage: light-dark(#b45309, #f59e0b); --stage-soft: light-dark(#fef5e7, #27241f); --warn-soft: light-dark(#fdeeee, #2e1f1f);
+    --serif: "Iowan Old Style", Charter, Georgia, "Songti SC", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", Helvetica, Arial, sans-serif;
+  }
+  :root[data-theme="light"] { color-scheme: light; }
+  :root[data-theme="dark"] { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { font-family: var(--sans); font-size: 14px; line-height: 1.5; color: var(--ink); background: var(--bg); display: grid; grid-template-columns: 290px minmax(0, 1fr); height: 100vh; }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .92em; background: var(--hover); padding: 1px 4px; border-radius: 3px; }
+
+  /* ---- sidebar ---- */
+  #side { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--rule); background: var(--panel); }
+  #side h1 { font-family: var(--serif); font-weight: 500; font-size: 19px; margin: 0; padding: 14px 16px 10px; }
+  #list { flex: 1; overflow-y: auto; padding-bottom: 12px; }
+  .group > button { display: flex; align-items: center; gap: 6px; width: 100%; padding: 10px 16px 4px; font-size: 12px; letter-spacing: .04em; color: var(--ink-3); text-align: left; }
+  .group > button .n { margin-left: auto; }
+  .group > button::before { content: "▾"; font-size: 10px; }
+  .group.closed > button::before { content: "▸"; }
+  .group.closed .items { display: none; }
+  .item { position: relative; display: block; width: 100%; padding: 7px 34px 7px 16px; text-align: left; border-left: 3px solid transparent; }
+  .item:hover { background: var(--hover); }
+  .item.active { border-left-color: var(--accent); background: var(--hover); }
+  .item.is-hidden { opacity: .55; }
+  .item .t { display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .m { display: block; font-size: 12px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .hide { position: absolute; right: 8px; top: 8px; width: 22px; height: 22px; border-radius: 4px; color: var(--ink-3); font-size: 12px; opacity: 0; }
+  .item:hover .hide, .item .hide:focus-visible { opacity: 1; }
+  .item .hide:hover { background: var(--rule); color: var(--ink); }
+  #side footer { padding: 8px 16px; border-top: 1px solid var(--rule); font-size: 12px; color: var(--ink-2); }
+  #side footer label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .empty-list { padding: 16px; color: var(--ink-3); }
+
+  .dot { display: inline-block; flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); vertical-align: 1px; }
+  .dot.waiting { background: var(--alert); }
+  .dot.working { background: var(--stage); animation: pulse 1.2s ease-in-out infinite; }
+  .dot.idle { background: var(--ok); }
+  .dot.finished { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-3); }
+  @keyframes pulse { 50% { opacity: .3; } }
+  @media (prefers-reduced-motion: reduce) { .dot.working { animation: none; } }
+
+  /* ---- main ---- */
+  #main { display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; min-height: 0; }
+  #tabs { display: flex; overflow-x: auto; border-bottom: 1px solid var(--rule); background: var(--panel); min-height: 39px; }
+  .tab { display: flex; align-items: center; gap: 7px; flex: 0 1 220px; min-width: 110px; padding: 0 6px 0 12px; border-right: 1px solid var(--rule); border-bottom: 2px solid transparent; color: var(--ink-2); }
+  .tab.active { color: var(--ink); border-bottom-color: var(--accent); background: var(--bg); }
+  .tab .name { flex: 1; padding: 9px 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tab .x { width: 20px; height: 20px; border-radius: 4px; color: var(--ink-3); }
+  .tab .x:hover { background: var(--rule); color: var(--ink); }
+  #panes { position: relative; min-height: 0; }
+  .pane { position: absolute; inset: 0; display: none; }
+  .pane.active { display: block; }
+  .pane iframe { width: 100%; height: 100%; border: 0; display: block; background: var(--bg); }
+  .scroll { height: 100%; overflow-y: auto; }
+
+  /* ---- read-only summary and empty state ---- */
+  .sum { max-width: 860px; margin: 0 auto; padding: 24px 28px 60px; }
+  .sum h2 { font-family: var(--serif); font-weight: 500; font-size: 24px; margin: 0 0 4px; }
+  .sum .intent { color: var(--ink-2); margin: 0 0 12px; }
+  .sum .meta { font-size: 13px; color: var(--ink-2); margin: 0 0 14px; }
+  .notice { padding: 9px 12px; border-radius: 6px; background: var(--stage-soft); border: 1px solid var(--rule); margin: 0 0 18px; font-size: 13px; }
+  .notice.done { background: var(--ok-soft); }
+  details.q { border-top: 1px solid var(--rule); }
+  details.q:last-of-type { border-bottom: 1px solid var(--rule); }
+  details.q > summary { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 2px 8px; padding: 10px 4px; cursor: pointer; list-style: none; }
+  details.q > summary::-webkit-details-marker { display: none; }
+  details.q > summary:hover { background: var(--hover); }
+  details.q .qn { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  details.q .qt { font-weight: 500; }
+  details.q .qa { grid-column: 2; font-size: 13px; color: var(--ink-2); }
+  details.q .qa.none { color: var(--ink-3); }
+  details.q .body { padding: 2px 4px 14px 50px; font-size: 13.5px; }
+  details.q .body p { margin: 0 0 8px; }
+  .opt { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 6px; padding: 3px 0; }
+  .opt .k { font-weight: 600; color: var(--ink-3); }
+  .opt.picked .k, .opt.picked { color: var(--ok); }
+  .tag { display: inline-block; font-size: 11px; padding: 0 5px; border-radius: 3px; border: 1px solid var(--rule); color: var(--ink-2); margin-left: 6px; vertical-align: 1px; white-space: nowrap; }
+  .why { margin-top: 8px; padding-left: 10px; border-left: 2px solid var(--rule); color: var(--ink-2); }
+  .thread { margin-top: 10px; }
+  .thread div { margin: 4px 0; }
+  .thread b { font-weight: 600; margin-right: 6px; }
+  .sum h3 { font-size: 13px; letter-spacing: .04em; color: var(--ink-3); font-weight: 500; margin: 26px 0 8px; }
+  .sum iframe.visual { width: 100%; height: 560px; border: 1px solid var(--rule); border-radius: 6px; background: #fff; }
+  .home-row { display: block; width: 100%; text-align: left; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); margin: 0 0 8px; }
+  .home-row:hover { background: var(--hover); }
+  .home-row .m { font-size: 12px; color: var(--ink-2); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  @media (max-width: 760px) { body { grid-template-columns: 1fr; grid-template-rows: 40vh minmax(0, 1fr); } #side { border-right: 0; border-bottom: 1px solid var(--rule); } }
+</style>
+</head>
+<body>
+<aside id="side">
+  <h1>决策中心</h1>
+  <div id="list"></div>
+  <footer><label><input type="checkbox" id="show-hidden" /> 显示已隐藏的会话</label></footer>
+</aside>
+<section id="main">
+  <div id="tabs" role="tablist"></div>
+  <div id="panes"></div>
+</section>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+// Inline markdown only, like the session page: bold and code. Everything is escaped first.
+const md = (s) => esc(s).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("grill-hub:" + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("grill-hub:" + k, JSON.stringify(v)); } catch {} },
+};
+const GROUPS = [["waiting", "等你回答"], ["working", "agent 处理中"], ["idle", "空闲"], ["finished", "已结束"]];
+const LABEL = Object.fromEntries(GROUPS);
+
+let sessions = new Map();               // id -> row from /api/sessions
+let tabs = store.get("tabs", []);       // open session ids, in order
+let active = store.get("active", null); // id of the selected tab
+let closed = store.get("closed", { finished: true });
+let showHidden = store.get("showHidden", false);
+let lastOpenSeq = null;                 // set from the first response: older open requests are history
+let loaded = false;
+const panes = new Map();                // id -> { el, mode }
+
+const projectName = (p) => (p || "").split(/[\\/]/).filter(Boolean).pop() || "";
+const when = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }); };
+function metaLine(s) {
+  const bits = [projectName(s.project)];
+  if (s.status === "waiting") bits.push(`${s.open} 题待答`);
+  else if (!s.finished && s.total) bits.push(`${s.answered}/${s.total} 已答`);
+  bits.push(when(s.created));
+  if (!s.finished && !s.online) bits.push("服务未运行");
+  else if (!s.finished && !s.listening) bits.push("无 agent 在听");
+  if (s.harness && s.harness.name) bits.push(s.harness.name + (s.harness.session ? " " + s.harness.session.slice(0, 8) : ""));
+  return bits.filter(Boolean).join(" · ");
+}
+
+// The list is re-rendered on every poll: touch the DOM only when the markup changed, so a
+// click or keyboard focus in progress is not thrown away every two seconds.
+const lastHtml = new WeakMap();
+function setHtml(el, html) { if (lastHtml.get(el) !== html) { lastHtml.set(el, html); el.innerHTML = html; } }
+function persist() { store.set("tabs", tabs); store.set("active", active); }
+function openTab(id, activate) {
+  if (!tabs.includes(id)) tabs.push(id);
+  if (activate || !active) active = id;
+  persist(); render();
+}
+function closeTab(id) {
+  const i = tabs.indexOf(id);
+  if (i < 0) return;
+  tabs.splice(i, 1);
+  if (active === id) active = tabs[Math.min(i, tabs.length - 1)] || null;
+  const p = panes.get(id); if (p) { p.el.remove(); panes.delete(id); }
+  persist(); render();
+}
+async function setHidden(id, hidden) {
+  await fetch("/api/hide", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, hidden }) }).catch(() => {});
+  poll();
+}
+
+// ---- sidebar ----
+function renderList() {
+  const list = $("list");
+  const rows = [...sessions.values()].filter((s) => showHidden || !s.hidden);
+  if (!rows.length) return setHtml(list, `<p class="empty-list">${loaded ? "还没有 grill 会话。" : "加载中…"}</p>`);
+  setHtml(list, GROUPS.map(([key, label]) => {
+    const items = rows.filter((s) => s.status === key);
+    if (!items.length) return "";
+    return `<div class="group${closed[key] ? " closed" : ""}" data-group="${key}">
+      <button type="button" aria-expanded="${!closed[key]}">${label}<span class="n">${items.length}</span></button>
+      <div class="items">${items.map((s) => `
+        <div class="item${s.id === active ? " active" : ""}${s.hidden ? " is-hidden" : ""}" data-id="${esc(s.id)}" role="button" tabindex="0" title="${esc(s.intent || s.topic)}">
+          <span class="t"><span class="dot ${s.status}"></span> ${esc(s.topic || "(无主题)")}</span>
+          <span class="m">${esc(metaLine(s))}</span>
+          <button type="button" class="hide" data-hide="${s.hidden ? "0" : "1"}" title="${s.hidden ? "取消隐藏" : "从列表中隐藏"}" aria-label="${s.hidden ? "取消隐藏" : "从列表中隐藏"}">${s.hidden ? "↺" : "✕"}</button>
+        </div>`).join("")}</div></div>`;
+  }).join(""));
+}
+$("list").addEventListener("click", (e) => {
+  const hide = e.target.closest(".hide"), item = e.target.closest(".item"), head = e.target.closest(".group > button");
+  if (hide) return setHidden(item.dataset.id, hide.dataset.hide === "1");
+  if (item) return openTab(item.dataset.id, true);
+  if (head) { const k = head.parentElement.dataset.group; closed[k] = !closed[k]; store.set("closed", closed); renderList(); }
+});
+$("list").addEventListener("keydown", (e) => {
+  if ((e.key === "Enter" || e.key === " ") && e.target.classList.contains("item")) { e.preventDefault(); openTab(e.target.dataset.id, true); }
+});
+$("show-hidden").checked = showHidden;
+$("show-hidden").onchange = (e) => { showHidden = e.target.checked; store.set("showHidden", showHidden); renderList(); };
+
+// ---- tabs ----
+function renderTabs() {
+  setHtml($("tabs"), tabs.map((id) => {
+    const s = sessions.get(id);
+    return `<div class="tab${id === active ? " active" : ""}" data-id="${esc(id)}" title="${esc(s ? LABEL[s.status] : "")}">
+      <span class="dot ${s ? s.status : ""}"></span>
+      <button type="button" class="name" role="tab" aria-selected="${id === active}">${esc(s ? s.topic || "(无主题)" : id)}</button>
+      <button type="button" class="x" aria-label="关闭标签">✕</button></div>`;
+  }).join(""));
+}
+$("tabs").addEventListener("click", (e) => {
+  const tab = e.target.closest(".tab"); if (!tab) return;
+  if (e.target.closest(".x")) return closeTab(tab.dataset.id);
+  active = tab.dataset.id; persist(); render();
+});
+
+// ---- panes: a live session is its own page in an iframe, anything else a read-only summary ----
+function renderPanes() {
+  const host = $("panes");
+  for (const id of tabs) {
+    const s = sessions.get(id); if (!s) continue;
+    const mode = s.online ? "live:" + s.url : "summary:" + s.stateMtime;
+    let p = panes.get(id);
+    if (!p) { p = { el: document.createElement("div"), mode: null }; p.el.className = "pane"; host.appendChild(p.el); panes.set(id, p); }
+    if (p.mode !== mode) {
+      const wasSummary = p.mode && p.mode.startsWith("summary:");
+      p.mode = mode;
+      if (s.online) p.el.innerHTML = `<iframe src="${esc(s.url)}" title="${esc(s.topic)}"></iframe>`;
+      else loadSummary(id, p, wasSummary);
+    }
+    p.el.classList.toggle("active", id === active);
+  }
+  let home = $("home");
+  if (!home) { home = document.createElement("div"); home.id = "home"; home.className = "pane"; host.appendChild(home); }
+  home.classList.toggle("active", !active);
+  if (!active) renderHome(home);
+}
+function renderHome(el) {
+  const waiting = [...sessions.values()].filter((s) => s.status === "waiting" && !s.hidden);
+  setHtml(el, `<div class="scroll"><div class="sum"><h2>${waiting.length ? "需要你处理" : "没有在等你的会话"}</h2>
+    <p class="intent">${waiting.length ? "这些会话的 agent 在等你回答。" : loaded ? "从左侧列表打开一个会话。" : "加载中…"}</p>
+    ${waiting.map((s) => `<button type="button" class="home-row" data-id="${esc(s.id)}"><b>${esc(s.topic)}</b><br><span class="m">${esc(metaLine(s))}</span></button>`).join("")}</div></div>`);
+}
+$("panes").addEventListener("click", (e) => { const r = e.target.closest(".home-row"); if (r) openTab(r.dataset.id, true); });
+
+const optText = (q, k) => { const o = (q.options || []).find((x) => x.k === k); return o ? `${k}. ${o.text}` : k; };
+function answerLine(q) {
+  if (q.status === "deferred") return ["已搁置", true];
+  const a = q.answer;
+  if (!a || q.status !== "answered") return [q.status === "reopened" ? "已重新打开，未答" : "未答", true];
+  if (a.kind === "text") return [a.text || "", false];
+  const ks = a.options || (a.option ? [a.option] : a.kind === "accept" ? (q.rec && (q.rec.options || (q.rec.option ? [q.rec.option] : []))) || [] : []);
+  if (!ks.length && q.rec && q.rec.text) return [q.rec.text, false];
+  return [ks.map((k) => optText(q, k)).join("；"), false];
+}
+async function loadSummary(id, p, keepOpen) {
+  const s = sessions.get(id);
+  const openIds = keepOpen ? new Set([...p.el.querySelectorAll("details.q[open]")].map((d) => d.dataset.q)) : new Set();
+  const top = keepOpen ? (p.el.querySelector(".scroll") || {}).scrollTop : 0;
+  let st = null;
+  try { const r = await fetch("/api/session?id=" + encodeURIComponent(id)); if (r.ok) st = await r.json(); } catch {}
+  if (panes.get(id) !== p || !p.mode.startsWith("summary:")) return; // closed or went live meanwhile
+  if (!st) { p.el.innerHTML = `<div class="scroll"><div class="sum"><p class="notice">读不到这个会话的 state.json。</p></div></div>`; return; }
+  const qs = Array.isArray(st.questions) ? st.questions : [];
+  const picked = (q) => { const a = q.answer || {}; return new Set(a.options || (a.option ? [a.option] : [])); };
+  const recs = (q) => new Set((q.rec && (q.rec.options || (q.rec.option ? [q.rec.option] : []))) || []);
+  const notice = st.finished
+    ? `<p class="notice done">已结束。设计文档：<code>${esc((st.finished.doc || st.doc || "") )}</code>（相对于 <code>${esc(st.project || "")}</code>）</p>`
+    : `<p class="notice">这个会话的服务没有在运行，这里是只读摘要。要作答，请先在对应的 agent 会话里运行 <code>/grill-with-ui resume</code>。</p>`;
+  p.el.innerHTML = `<div class="scroll"><div class="sum">
+    <h2>${esc(st.topic || "(无主题)")}</h2>
+    ${st.intent ? `<p class="intent">${esc(st.intent)}</p>` : ""}
+    <p class="meta"><span class="dot ${s.status}"></span> ${LABEL[s.status]} · ${esc(metaLine(s))}</p>
+    ${notice}
+    ${qs.map((q, i) => {
+      const [line, none] = answerLine(q), pk = picked(q), rc = recs(q);
+      return `<details class="q" data-q="${esc(q.id)}"${openIds.has(q.id) ? " open" : ""}>
+        <summary><span class="qn">Q${i + 1}</span><span class="qt">${md(q.title)}</span><span class="qa${none ? " none" : ""}">${md(line)}</span></summary>
+        <div class="body">
+          ${q.body ? `<p>${md(q.body)}</p>` : ""}
+          ${(q.options || []).map((o) => `<div class="opt${pk.has(o.k) || (q.answer && q.answer.kind === "accept" && rc.has(o.k)) ? " picked" : ""}"><span class="k">${esc(o.k)}</span><span>${md(o.text)}${rc.has(o.k) ? '<span class="tag">推荐</span>' : ""}</span></div>`).join("")}
+          ${q.rec && q.rec.why ? `<div class="why">${q.rec.text ? md(q.rec.text) + "<br>" : ""}${md(q.rec.why)}</div>` : ""}
+          ${(q.thread || []).length ? `<div class="thread">${q.thread.map((m) => `<div><b>${m.who === "user" ? "你" : "agent"}</b>${md(m.text)}</div>`).join("")}</div>` : ""}
+        </div></details>`;
+    }).join("") || `<p class="meta">还没有问题。</p>`}
+    ${s.hasVisual ? `<h3>可视化</h3><iframe class="visual" sandbox="allow-scripts" src="/api/visual?id=${encodeURIComponent(id)}" title="可视化"></iframe>` : ""}
+  </div></div>`;
+  if (top) p.el.querySelector(".scroll").scrollTop = top;
+}
+
+// ---- title and favicon: how many sessions wait for an answer ----
+function renderBadge() {
+  const n = [...sessions.values()].filter((s) => s.status === "waiting" && !s.hidden).length;
+  document.title = (n ? `(${n}) ` : "") + "决策中心";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0f1115"/><text x="16" y="23" font-family="Georgia,serif" font-size="20" text-anchor="middle" fill="#ffffff">g</text>${n ? '<circle cx="25" cy="7" r="6.5" fill="#ec1313" stroke="#fff" stroke-width="1.5"/>' : ""}</svg>`;
+  $("favicon").href = "data:image/svg+xml," + encodeURIComponent(svg);
+}
+
+function render() { renderList(); renderTabs(); renderPanes(); renderBadge(); }
+
+function fromHash() {
+  const m = /^#s=(.+)$/.exec(location.hash);
+  if (!m) return null;
+  history.replaceState(null, "", location.pathname);
+  try { return decodeURIComponent(m[1]); } catch { return null; }
+}
+let wanted = fromHash(); // a session hub-open asked for before this page loaded
+window.addEventListener("hashchange", () => { wanted = fromHash() || wanted; poll(); });
+
+async function poll() {
+  let data;
+  try { const r = await fetch("/api/sessions"); if (!r.ok) throw 0; data = await r.json(); } catch { return; }
+  sessions = new Map(data.sessions.map((s) => [s.id, s]));
+  loaded = true;
+  // Restored tabs whose session folder is gone are dropped.
+  const before = tabs.length;
+  tabs = tabs.filter((id) => sessions.has(id));
+  if (active && !tabs.includes(active)) active = tabs[0] || null;
+  if (tabs.length !== before) for (const [id, p] of panes) if (!tabs.includes(id)) { p.el.remove(); panes.delete(id); }
+  // New grills announced by hub-open: add a tab, never steal the selection.
+  if (lastOpenSeq === null) lastOpenSeq = data.openSeq;
+  for (const o of data.opens) if (o.seq > lastOpenSeq && sessions.has(o.id) && !tabs.includes(o.id)) tabs.push(o.id);
+  lastOpenSeq = Math.max(lastOpenSeq, data.openSeq);
+  if (wanted && sessions.has(wanted)) { if (!tabs.includes(wanted)) tabs.push(wanted); active = wanted; wanted = null; }
+  if (!active && tabs.length && before === 0 && tabs.length === 1) active = tabs[0];
+  persist(); render();
+}
+render();
+poll();
+setInterval(poll, 2000);
+</script>
+</body>
+</html>

@@ -116,7 +116,8 @@ GRILL_PATCH
    (see Interview method), plus any `terms`, `axes` if the default four do not fit the topic,
    and `"agent": { "status": "waiting" }`.
 3. Open a **persistent Monitor** (`persistent: true`) whose command is
-   `node $SKILL/server.mjs serve --session <session> --open`, description `grill page: <topic>`.
+   `node $SKILL/server.mjs serve --session <session> --open-command $SKILL/hub-open.mjs`, description `grill page: <topic>`.
+   (Fork: `hub-open.mjs` opens the page as a tab in the hub, see `docs/hub-design.md`; wherever this file says `--open`, pass `--open-command $SKILL/hub-open.mjs` instead, with `$SKILL` as an absolute path.)
    No Monitor tool in your harness (Codex, Gemini CLI, Cursor, Copilot, others)? Use
    "Wait mode" at the end of this file for this step and for every wait after it.
    `--open` opens the page in the user's browser once the server is listening. Pass it
@@ -441,7 +442,7 @@ On a `finish` action, or when the user says finish in the terminal:
 
 ## Wait mode (agents without a Monitor tool)
 
-Start the server with `node $SKILL/server.mjs serve --session <session> --detach --open`
+Start the server with `node $SKILL/server.mjs serve --session <session> --detach --open-command $SKILL/hub-open.mjs`
 (macOS, Linux and Windows alike); `--open` follows Start step 3's rule, so drop it on resume
 and with `--lan`. It puts the server in the background with its output in
 `<session>/serve.log`, prints the ready line with the URL once the server is listening, and exits;
