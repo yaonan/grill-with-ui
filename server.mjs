@@ -62,6 +62,21 @@ function writeJson(file, obj) {
   try { fs.writeFileSync(tmp, text); fs.renameSync(tmp, file); } catch (e) { fs.rmSync(tmp, { force: true }); throw e; }
   return Buffer.byteLength(text);
 }
+// ---- the one place that turns "this folder refuses writes" into a sentence ----
+// A home inside a sandbox, or on a read-only volume, refuses the first write of new, serve and
+// patch with EPERM, EACCES or EROFS. All three write through ensureWritable, so that failure is
+// one line naming the folder and the two ways out, never a Node stack trace; exit code 1 is what
+// these write failures already used. Any other errno (ENOSPC, ENOTDIR, EIO) is a different
+// problem and keeps its own reporting, so a full disk is never mislabelled as "change the home".
+const WRITE_REFUSED = new Set(["EPERM", "EACCES", "EROFS"]);
+const unwritable = (home, why) =>
+  `写不进 ${home}（${why}）；换一个 GRILL_HOME（例如工作区里的目录），或给它一条沙箱可写根`;
+function ensureWritable(home, why, write) {
+  try { return write(); } catch (e) {
+    if (!WRITE_REFUSED.has(e && e.code)) throw e;
+    die(unwritable(home, why), 1);
+  }
+}
 function mustSession(o) {
   if (!o.session || o.session === true) die("--session <dir> is required");
   const dir = path.resolve(o.session);
@@ -87,19 +102,21 @@ function cmdNew(o) {
   const project = projectRoot(process.cwd());
   const key = keyOf(project);
   const dir = path.join(HOME, "sessions", key);
-  fs.mkdirSync(dir, { recursive: true });
   const id = stamp();
   let session = path.join(dir, id);
   for (let n = 2; fs.existsSync(session); n++) session = path.join(dir, `${id}-${n}`);
-  fs.mkdirSync(session);
   const now = new Date().toISOString();
-  writeJson(path.join(session, "state.json"), {
-    topic: typeof o.topic === "string" ? o.topic : "",
-    intent: typeof o.intent === "string" ? o.intent : "",
-    doc: typeof o.doc === "string" ? o.doc : "",
-    project, created: now, agent: { status: "working", since: now }, terms: [], questions: [],
+  ensureWritable(HOME, `${path.join(HOME, "sessions")} 不可写`, () => {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.mkdirSync(session);
+    writeJson(path.join(session, "state.json"), {
+      topic: typeof o.topic === "string" ? o.topic : "",
+      intent: typeof o.intent === "string" ? o.intent : "",
+      doc: typeof o.doc === "string" ? o.doc : "",
+      project, created: now, agent: { status: "working", since: now }, terms: [], questions: [],
+    });
+    fs.writeFileSync(path.join(session, "events.jsonl"), "");
   });
-  fs.writeFileSync(path.join(session, "events.jsonl"), "");
   print({ session, key, project, id: path.basename(session), doc: typeof o.doc === "string" ? o.doc : "", intent: typeof o.intent === "string" ? o.intent : "" });
 }
 
@@ -409,7 +426,9 @@ function cmdServe(o) {
       selfHosts.push(`${h.includes(":") && !h.startsWith("[") ? `[${h}]` : h}:${port}`);
     }
     selfOrigins = selfHosts.map((h) => `http://${h}`);
-    writeJson(serverFile, { url, port, pid: process.pid, started: new Date().toISOString(), host, ...(lanUrl ? { lanUrl } : {}) });
+    ensureWritable(session, "它的会话目录不可写", () => {
+      writeJson(serverFile, { url, port, pid: process.pid, started: new Date().toISOString(), host, ...(lanUrl ? { lanUrl } : {}) });
+    });
     print({ type: "ready", url, session, ...(lanUrl ? { lanUrl } : {}) });
     if (o.open || openCommand) openPage(url, openCommand);
   });
@@ -793,7 +812,7 @@ function cmdPatch(o) {
       : `could not apply the patch (state.json unchanged): ${oneLine(e.message)}`);
   }
   let bytes;
-  try { bytes = writeJson(file, next); } catch (e) { die(`could not write state.json: ${e.code || oneLine(e.message)}`, 1); }
+  try { bytes = ensureWritable(session, "它的会话目录不可写", () => writeJson(file, next)); } catch (e) { die(`could not write state.json: ${e.code || oneLine(e.message)}`, 1); }
   // One short line, never the state itself: keeping the state out of the agent's context is the point.
   const qs = next.questions;
   print({ ok: true, questions: qs.length, open: qs.filter(isOpen).length, handled: Number(next.agent && next.agent.handled) || 0, bytes });
