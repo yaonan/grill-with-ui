@@ -1260,14 +1260,19 @@ test("serve --open: no opener (headless) or a failing one leaves one stderr note
 });
 
 // A home (or one of its session folders) on a read-only volume: new, serve and patch each owe one
-// stderr line that names the place and the way out, never a Node stack trace. These assert only
-// what a caller sees: exit code, one grill: line, the path, the keyword, and no stack framing.
+// stderr line that names the home, gives the way out, never a Node stack trace. These assert only
+// what a caller sees: exit code, one grill: line, the home in the main path slot, the keyword, and
+// no stack framing. A session folder sits under the home, so "starts with the home" alone would
+// pass even when the line led with the session folder; requiring the character after the home to
+// not be a path separator is what actually pins the home slot.
 function assertOneLineNoStack(r, home) {
   assert.equal(r.status, 1, `a refused write keeps the existing exit code: ${r.stderr}`);
   assert.equal(r.stdout, "", "nothing on stdout");
   assert.match(r.stderr, /^grill: [^\n]*\n$/, `exactly one grill: line and no stack, got: ${r.stderr}`);
   assert.match(r.stderr, /GRILL_HOME/, `names a way out: ${r.stderr}`);
-  assert.ok(r.stderr.includes(home), `names the home ${home}: ${r.stderr}`);
+  const lead = `grill: cannot write ${home}`;
+  assert.ok(r.stderr.startsWith(lead), `the line leads with the home ${home}: ${r.stderr}`);
+  assert.doesNotMatch(r.stderr.slice(lead.length), /^[\\/]/, `the home occupies the main path slot, not a folder under it: ${r.stderr}`);
   assert.doesNotMatch(r.stderr, /Error:/);
   assert.doesNotMatch(r.stderr, /^\s+at /m);
 }
