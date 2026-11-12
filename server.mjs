@@ -70,7 +70,7 @@ function writeJson(file, obj) {
 // problem and keeps its own reporting, so a full disk is never mislabelled as "change the home".
 const WRITE_REFUSED = new Set(["EPERM", "EACCES", "EROFS"]);
 const unwritable = (home, why) =>
-  `写不进 ${home}（${why}）；换一个 GRILL_HOME（例如工作区里的目录），或给它一条沙箱可写根`;
+  `cannot write ${home}（${why}）；换一个 GRILL_HOME，或给它一条沙箱可写根`;
 function ensureWritable(home, why, write) {
   try { return write(); } catch (e) {
     if (!WRITE_REFUSED.has(e && e.code)) throw e;
@@ -426,7 +426,7 @@ function cmdServe(o) {
       selfHosts.push(`${h.includes(":") && !h.startsWith("[") ? `[${h}]` : h}:${port}`);
     }
     selfOrigins = selfHosts.map((h) => `http://${h}`);
-    ensureWritable(session, "它的会话目录不可写", () => {
+    ensureWritable(HOME, `${session} 不可写`, () => {
       writeJson(serverFile, { url, port, pid: process.pid, started: new Date().toISOString(), host, ...(lanUrl ? { lanUrl } : {}) });
     });
     print({ type: "ready", url, session, ...(lanUrl ? { lanUrl } : {}) });
@@ -812,7 +812,7 @@ function cmdPatch(o) {
       : `could not apply the patch (state.json unchanged): ${oneLine(e.message)}`);
   }
   let bytes;
-  try { bytes = ensureWritable(session, "它的会话目录不可写", () => writeJson(file, next)); } catch (e) { die(`could not write state.json: ${e.code || oneLine(e.message)}`, 1); }
+  try { bytes = ensureWritable(HOME, `${session} 不可写`, () => writeJson(file, next)); } catch (e) { die(`could not write state.json: ${e.code || oneLine(e.message)}`, 1); }
   // One short line, never the state itself: keeping the state out of the agent's context is the point.
   const qs = next.questions;
   print({ ok: true, questions: qs.length, open: qs.filter(isOpen).length, handled: Number(next.agent && next.agent.handled) || 0, bytes });
